@@ -2,7 +2,7 @@
 
 import clientPromise from "../../components/lib/mongodb";
 
-interface SubmitLeadParams {
+export async function submitLeadAndGetRedirect(data: {
   name: string;
   email: string;
   phone: string;
@@ -10,44 +10,41 @@ interface SubmitLeadParams {
   whatsapp?: string;
   selectedDay: number;
   channel: "whatsapp" | "telegram";
-}
+}) {
+  try {
+    const client = await clientPromise;
+    const db = client.db("luxury_leads");
 
-export async function submitLeadAndGetRedirect(data: SubmitLeadParams) {
-  const client = await clientPromise;
-  const db = client.db("luxury_leads");
+    // Save lead submission to MongoDB
+    await db.collection("leads").insertOne({
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      telegram: data.telegram || "",
+      whatsapp: data.whatsapp || "",
+      dayViewed: data.selectedDay,
+      channel: data.channel,
+      createdAt: new Date(),
+    });
 
-  // Insert lead directly into the "leads" collection viewed by the admin panel
-  await db.collection("leads").insertOne({
-    name: data.name,
-    email: data.email,
-    phone: data.phone,
-    telegram: data.telegram || "",
-    whatsapp: data.whatsapp || "",
-    dayViewed: data.selectedDay,
-    createdAt: new Date(),
-  });
+    // Fetch the live admin configuration for this specific day from MongoDB
+    const dayConfig = await db.collection("days").findOne({ day: data.selectedDay });
+    const documentUrl = dayConfig?.documentUrl || "";
 
-  // Pull day document configuration dynamically from MongoDB
-  const dayContent = await db.collection("days").findOne({ day: data.selectedDay });
-  const title = dayContent?.title || `Day ${data.selectedDay} Masterclass`;
-  const documentUrl = dayContent?.documentUrl || "";
-  
-  let redirectUrl = "";
-
-  if (data.channel === "whatsapp") {
-    const message = encodeURIComponent(
-      `Hello ${data.name}, here is your document for ${title}: ${documentUrl}`
-    );
-    const cleanPhone = data.whatsapp ? data.whatsapp.replace(/\D/g, "") : "";
-    redirectUrl = `https://wa.me/${cleanPhone}?text=${message}`;
-  } else {
-    const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME?.replace("@", "").trim();
-    if (botUsername) {
-      redirectUrl = `https://t.me/${botUsername}?start=day_${data.selectedDay}`;
+    // Generate destination link using the live document URL from the database
+    let redirectUrl = "";
+    if (data.channel === "whatsapp") {
+      const message = encodeURIComponent(`Hello ${data.name}, here is your requested document for Day ${data.selectedDay}: ${documentUrl}`);
+      const cleanPhone = data.whatsapp ? data.whatsapp.replace(/\D/g, "") : data.phone.replace(/\D/g, "");
+      redirectUrl = `https://wa.me/${cleanPhone}?text=${message}`;
     } else {
-      throw new Error("NEXT_PUBLIC_TELEGRAM_BOT_USERNAME is missing.");
+      // Telegram fallback or direct link
+      redirectUrl = documentUrl || "https://telegram.org";
     }
-  }
 
-  return { success: true, redirectUrl };
+    return { success: true, redirectUrl };
+  } catch (error) {
+    console.error("Lead submission error:", error);
+    return { success: false, error: "Failed to process lead" };
+  }
 }

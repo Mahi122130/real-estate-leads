@@ -43,13 +43,15 @@ bot.start(async (ctx) => {
       { parse_mode: "Markdown" }
     );
 
-    if (rawDocumentUrl) {
+    if (rawDocumentUrl && rawDocumentUrl.trim() !== "") {
+      const cleanUrl = getCleanDownloadUrl(rawDocumentUrl);
       try {
-        const cleanUrl = getCleanDownloadUrl(rawDocumentUrl);
         await ctx.telegram.sendDocument(ctx.chat.id, Input.fromURL(cleanUrl));
       } catch (sendErr) {
-        console.error(`Failed to send document file for day ${dayNum}:`, sendErr);
-        await ctx.reply(`📄 *Download Document Link:* ${rawDocumentUrl}`, { parse_mode: "Markdown" });
+        console.error(`Failed to stream document file for day ${dayNum}:`, sendErr);
+        await ctx.reply(`📄 *Direct Download Link:* [Click here to download your document](${rawDocumentUrl})`, {
+          parse_mode: "Markdown",
+        });
       }
     } else {
       await ctx.reply("The document for this day has not been uploaded by the admin yet.");

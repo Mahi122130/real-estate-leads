@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Telegraf } from "telegraf";
-import { DAYS_CONFIG } from "../../../components/data/daysConfig";
+import clientPromise from "../../../components/lib/mongodb";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -11,7 +11,7 @@ const bot = new Telegraf(token || "");
 
 bot.start(async (ctx) => {
   try {
-    const startPayload = ctx.payload; // Example: "day_1"
+    const startPayload = ctx.payload; 
     let dayNum = 1;
 
     if (startPayload && startPayload.startsWith("day_")) {
@@ -20,18 +20,22 @@ bot.start(async (ctx) => {
       if (!isNaN(parsed)) dayNum = parsed;
     }
 
-    // Pull strictly the single day configuration requested
-    const content = DAYS_CONFIG.find((d) => d.day === dayNum) || DAYS_CONFIG[0];
+    const client = await clientPromise;
+    const db = client.db("luxury_leads");
+    const dayData = await db.collection("days").findOne({ day: dayNum });
 
-    // Send text message for the documentation only (no video link)
+    const title = dayData?.title || `Day ${dayNum}`;
+    const documentUrl = dayData?.documentUrl;
+
     await ctx.reply(
-      `Welcome to the Real Estate Masterclass!\n\nHere is your requested document for *${content.title}*:\n\nEnjoy the training!`,
+      `Welcome to the Real Estate Masterclass!\n\nHere is your requested document for *${title}*:\n\nEnjoy the training!`,
       { parse_mode: "Markdown" }
     );
 
-    // Send the single PDF file for this specific day
-    if (content.documentUrl && !content.documentUrl.includes("example.com")) {
-      await ctx.telegram.sendDocument(ctx.chat.id, { url: content.documentUrl });
+    if (documentUrl && !documentUrl.includes("example.com")) {
+      await ctx.telegram.sendDocument(ctx.chat.id, { url: documentUrl });
+    } else {
+      await ctx.reply("⚠️ Document for this specific day has not been uploaded by the admin yet.");
     }
 
   } catch (err) {
@@ -45,7 +49,7 @@ export async function POST(req: Request) {
     await bot.handleUpdate(body);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("Webhook endpoint error:", error);
+    console.error("Webhook processing error:", error);
     return NextResponse.json({ ok: true });
   }
 }

@@ -1,4 +1,3 @@
-// src/app/admin/page.tsx
 import clientPromise from "@/components/lib/mongodb";
 import { revalidatePath } from "next/cache";
 
@@ -8,14 +7,14 @@ export default async function AdminDashboard() {
   const client = await clientPromise;
   const db = client.db("luxury_leads");
   
-  // 1. Fetch leads
+  // Fetch leads
   const leads = await db
     .collection("leads")
     .find({})
     .sort({ createdAt: -1 })
     .toArray();
 
-  // 2. Fetch days content configuration
+  // Fetch days configuration
   let days = await db.collection("days").find({}).sort({ day: 1 }).toArray();
 
   if (days.length === 0) {
@@ -54,11 +53,11 @@ export default async function AdminDashboard() {
     <div className="min-h-screen bg-slate-950 text-slate-100 p-8 space-y-12">
       <div className="max-w-6xl mx-auto space-y-10">
         
-        {/* SECTION 1: MANAGE DAYS CONTENT (Admin Uploads) */}
+        {/* SECTION 1: MANAGE DAYS CONFIGURATION */}
         <div className="space-y-6">
           <div className="border-b border-slate-800 pb-4">
             <h1 className="text-2xl font-bold text-white">Admin Panel: Manage Day Files & Links</h1>
-            <p className="text-slate-400 text-sm">Upload video URLs for the landing page and PDF file URLs for automated WhatsApp/Telegram delivery.</p>
+            <p className="text-slate-400 text-sm">Active Schedule Reference Date: July 10, 2026</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -68,7 +67,7 @@ export default async function AdminDashboard() {
                 <h2 className="text-lg font-semibold text-white">Day {d.day}: {d.title}</h2>
                 
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Video URL (Landing Page)</label>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Video URL (Portal)</label>
                   <input 
                     type="text" 
                     name="videoUrl" 

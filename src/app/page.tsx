@@ -3,15 +3,14 @@
 import React, { useState, useEffect } from "react";
 import { submitLeadAndGetRedirect } from "./actions/leadActions";
 import { Lock, Send, PlayCircle, Loader2 } from "lucide-react";
-import { getEmbedVideoUrl } from "../components/lib/urlParser";
+import { getVideoEmbedInfo } from "../components/lib/urlParser";
 
 export default function LandingPage() {
   const [days, setDays] = useState<any[]>([]);
   const [selectedDay, setSelectedDay] = useState(1);
   const [unlockedDays, setUnlockedDays] = useState<number[]>([1]);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // Independent loading states per channel to avoid triggering both simultaneously
+
   const [loadingWhatsApp, setLoadingWhatsApp] = useState(false);
   const [loadingTelegram, setLoadingTelegram] = useState(false);
 
@@ -29,7 +28,9 @@ export default function LandingPage() {
 
   async function fetchLiveDays() {
     try {
-      const res = await fetch("/api/days");
+      // no-store: this page must always reflect whatever the admin last
+      // saved, not a cached response from an earlier visit.
+      const res = await fetch("/api/days", { cache: "no-store" });
       const data = await res.json();
       if (data.success && data.days.length > 0) {
         setDays(data.days);
@@ -47,8 +48,10 @@ export default function LandingPage() {
     description: "Loading masterclass details...",
     videoUrl: "",
     documentUrl: "",
-    isLocked: false
+    isLocked: false,
   };
+
+  const videoInfo = getVideoEmbedInfo(activeContent.videoUrl);
 
   const handleDaySelect = (dayNum: number, isLocked: boolean) => {
     if (dayNum === 1 || (!isLocked && unlockedDays.includes(dayNum))) {
@@ -84,7 +87,7 @@ export default function LandingPage() {
           window.open(res.redirectUrl, "_blank");
         }
       } else {
-        alert("Failed to submit details. Please try again.");
+        alert(res.error || "Failed to submit details. Please try again.");
       }
     } catch (err) {
       console.error(err);
@@ -106,8 +109,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center py-10 px-4">
       <div className="w-full max-w-4xl space-y-8">
-        
-        {/* Header */}
+
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
             Real Estate Masterclass Hub
@@ -117,7 +119,6 @@ export default function LandingPage() {
           </p>
         </div>
 
-        {/* Day Selector Navigation */}
         <div className="grid grid-cols-2 sm:grid-cols-7 gap-2">
           {days.map((d) => {
             const isUnlocked = d.day === 1 || (!d.isLocked && unlockedDays.includes(d.day));
@@ -150,27 +151,38 @@ export default function LandingPage() {
           })}
         </div>
 
-        {/* Active Video Section */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl p-6 space-y-4">
           <div className="space-y-1">
             <h2 className="text-xl font-semibold text-white">{activeContent.title}</h2>
             <p className="text-sm text-slate-400">{activeContent.description}</p>
           </div>
           <div className="relative aspect-video w-full bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
-            {activeContent.videoUrl ? (
+            {videoInfo.type === "iframe" && (
               <iframe
-                src={getEmbedVideoUrl(activeContent.videoUrl)}
+                src={videoInfo.src}
                 title={activeContent.title}
                 className="absolute top-0 left-0 w-full h-full"
+                allow="autoplay; fullscreen; encrypted-media"
                 allowFullScreen
               />
-            ) : (
-              <p className="text-xs text-slate-500">No video link configured for Day {selectedDay}</p>
+            )}
+            {videoInfo.type === "direct" && (
+              <video
+                src={videoInfo.src}
+                controls
+                className="absolute top-0 left-0 w-full h-full"
+              />
+            )}
+            {videoInfo.type === "unsupported" && (
+              <p className="text-xs text-slate-500 px-6 text-center">
+                {activeContent.videoUrl
+                  ? "This video link isn't in a supported format (YouTube, Vimeo, Loom, Google Drive, or a direct .mp4 file)."
+                  : `No video link configured for Day ${selectedDay}`}
+              </p>
             )}
           </div>
         </div>
 
-        {/* Lead Capture Form */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6">
           <div className="border-b border-slate-800 pb-4">
             <h3 className="text-lg font-semibold text-white">Get Day {selectedDay} Document</h3>
@@ -237,7 +249,6 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Action Buttons with distinct handlers */}
           <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <button
               type="button"

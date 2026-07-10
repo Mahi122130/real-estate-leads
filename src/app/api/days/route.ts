@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/components/lib/mongodb";
-import { DAYS_CONFIG } from "@/components/data/daysConfig";
+import clientPromise from "../../../components/lib/mongodb";
+import { DAYS_CONFIG } from "../../../components/data/daysConfig";
 
 export const dynamic = "force-dynamic";
 
@@ -9,12 +9,10 @@ export async function GET() {
     const client = await clientPromise;
     const db = client.db("luxury_leads");
 
-    const leads = await db.collection("leads").find({}).sort({ createdAt: -1 }).toArray();
     const dbDays = await db.collection("days").find({}).toArray();
-
     const daysMap = new Map(dbDays.map((day) => [day.day, day]));
 
-    const days = DAYS_CONFIG.map((defaultDay) => {
+    const mergedDays = DAYS_CONFIG.map((defaultDay) => {
       const savedDay = daysMap.get(defaultDay.day);
 
       return {
@@ -24,21 +22,15 @@ export async function GET() {
         videoUrl: savedDay?.videoUrl ?? defaultDay.videoUrl ?? "",
         documentUrl: savedDay?.documentUrl ?? defaultDay.documentUrl ?? "",
         isLocked: savedDay?.isLocked ?? !defaultDay.isUnlockedDefault,
-        createdAt: savedDay?.createdAt ?? null,
         updatedAt: savedDay?.updatedAt ?? null,
       };
     });
 
-    return NextResponse.json({
-      success: true,
-      stats: { totalLeads: leads.length, totalDays: days.length },
-      leads,
-      days,
-    });
+    return NextResponse.json({ success: true, count: mergedDays.length, days: mergedDays }, { status: 200 });
   } catch (error) {
-    console.error("Admin Data API Error:", error);
+    console.error("Days API Error:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to load admin dashboard data." },
+      { success: false, error: "Failed to fetch day configuration." },
       { status: 500 }
     );
   }

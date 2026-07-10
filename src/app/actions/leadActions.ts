@@ -16,7 +16,7 @@ export async function submitLeadAndGetRedirect(data: SubmitLeadParams) {
   const client = await clientPromise;
   const db = client.db("luxury_leads");
 
-  // Insert lead into MongoDB matching the collection name read by the admin panel
+  // Insert lead directly into the "leads" collection viewed by the admin panel
   await db.collection("leads").insertOne({
     name: data.name,
     email: data.email,
@@ -27,7 +27,7 @@ export async function submitLeadAndGetRedirect(data: SubmitLeadParams) {
     createdAt: new Date(),
   });
 
-  // Pull day details dynamically from MongoDB
+  // Pull day document configuration dynamically from MongoDB
   const dayContent = await db.collection("days").findOne({ day: data.selectedDay });
   const title = dayContent?.title || `Day ${data.selectedDay} Masterclass`;
   const documentUrl = dayContent?.documentUrl || "";

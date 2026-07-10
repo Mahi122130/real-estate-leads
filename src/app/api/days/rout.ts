@@ -8,36 +8,64 @@ export async function GET() {
   try {
     const client = await clientPromise;
     const db = client.db("luxury_leads");
-    
-    // Fetch all custom saved configs from MongoDB
+
+    // Get all saved day configurations
     const dbDays = await db.collection("days").find({}).toArray();
 
-    // Map over original DAYS_CONFIG and merge with DB overrides if they exist
-    const mergedDays = DAYS_CONFIG.map((staticDay) => {
-      const foundDbDay = dbDays.find((d) => d.day === staticDay.day);
-      if (foundDbDay) {
-        return {
-          day: staticDay.day,
-          title: foundDbDay.title || staticDay.title,
-          description: foundDbDay.description || staticDay.description,
-          videoUrl: foundDbDay.videoUrl || staticDay.videoUrl,
-          documentUrl: foundDbDay.documentUrl || staticDay.documentUrl,
-          isLocked: foundDbDay.isLocked ?? !staticDay.isUnlockedDefault,
-        };
-      }
+    // Create a quick lookup map
+    const daysMap = new Map(
+      dbDays.map((day) => [day.day, day])
+    );
+
+    // Merge default config with MongoDB values
+    const mergedDays = DAYS_CONFIG.map((defaultDay) => {
+      const savedDay = daysMap.get(defaultDay.day);
+
       return {
-        day: staticDay.day,
-        title: staticDay.title,
-        description: staticDay.description,
-        videoUrl: staticDay.videoUrl,
-        documentUrl: staticDay.documentUrl,
-        isLocked: !staticDay.isUnlockedDefault,
+        day: defaultDay.day,
+
+        title:
+          savedDay?.title ?? defaultDay.title,
+
+        description:
+          savedDay?.description ?? defaultDay.description,
+
+        videoUrl:
+          savedDay?.videoUrl ?? defaultDay.videoUrl ?? "",
+
+        documentUrl:
+          savedDay?.documentUrl ?? defaultDay.documentUrl ?? "",
+
+        isLocked:
+          savedDay?.isLocked ??
+          !defaultDay.isUnlockedDefault,
+
+        updatedAt:
+          savedDay?.updatedAt ?? null,
       };
     });
 
-    return NextResponse.json({ success: true, days: mergedDays });
+    return NextResponse.json(
+      {
+        success: true,
+        count: mergedDays.length,
+        days: mergedDays,
+      },
+      {
+        status: 200,
+      }
+    );
   } catch (error) {
-    console.error("Failed to load days API:", error);
-    return NextResponse.json({ success: false, error: "Failed to load days" }, { status: 500 });
+    console.error("Days API Error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to fetch day configuration.",
+      },
+      {
+        status: 500,
+      }
+    );
   }
 }

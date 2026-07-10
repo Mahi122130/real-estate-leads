@@ -1,33 +1,33 @@
+// Converts a normal YouTube/Vimeo link into an embeddable iframe src.
 export function getEmbedVideoUrl(url: string): string {
   if (!url) return "";
   try {
-    if (url.includes("/embed/")) return url;
-
-    // Dynamically extract video ID from any standard YouTube/youtu.be link format
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-
-    if (match && match[2].length === 11) {
-      return `https://www.youtube.com/embed/${match[2]}`;
+    const youtubeMatch = url.match(
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/
+    );
+    if (youtubeMatch) {
+      return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
     }
+
+    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+    if (vimeoMatch) {
+      return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    }
+
+    // Already an embed link or unrecognized provider — pass through.
     return url;
-  } catch (error) {
-    console.error("Video URL parsing error:", error);
+  } catch {
     return url;
   }
 }
 
+// Converts a Google Drive "view" link into a direct-download link.
+// Other URLs (e.g. direct PDF links, S3 links) are passed through unchanged.
 export function getDownloadableFileUrl(url: string): string {
   if (!url) return "";
-  try {
-    // Dynamically extract file ID from common cloud storage sharing link patterns (like Google Drive)
-    const fileIdMatch = url.match(/[-\w]{25,}/);
-    if (url.includes("drive.google.com") && fileIdMatch) {
-      return `https://drive.google.com/uc?export=download&id=${fileIdMatch[0]}`;
-    }
-    return url;
-  } catch (error) {
-    console.error("File URL parsing error:", error);
-    return url;
+  const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (driveMatch) {
+    return `https://drive.google.com/uc?export=download&id=${driveMatch[1]}`;
   }
+  return url;
 }

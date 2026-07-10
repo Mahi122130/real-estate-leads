@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { Telegraf } from "telegraf";
+import { Telegraf, Input } from "telegraf";
 import clientPromise from "../../../components/lib/mongodb";
 import { getDownloadableFileUrl } from "../../../components/lib/urlParser";
 
@@ -12,7 +12,7 @@ const bot = new Telegraf(token || "");
 
 bot.start(async (ctx) => {
   try {
-    const startPayload = ctx.payload; 
+    const startPayload = ctx.payload;
     let dayNum = 1;
 
     if (startPayload && startPayload.startsWith("day_")) {
@@ -34,14 +34,16 @@ bot.start(async (ctx) => {
     );
 
     if (rawDocumentUrl && !rawDocumentUrl.includes("example.com")) {
-      await ctx.telegram.sendDocument(ctx.chat.id, {
-        url: getDownloadableFileUrl(rawDocumentUrl),
-        filename: `Day_${dayNum}_Masterclass_Resource.pdf`,
-      });
+      // Input.fromURL is Telegraf's documented way to send a remote file
+      // with a custom display filename (adjust the extension if your
+      // documents aren't PDFs).
+      await ctx.telegram.sendDocument(
+        ctx.chat.id,
+        Input.fromURL(getDownloadableFileUrl(rawDocumentUrl))
+      );
     } else {
-      await ctx.reply("⚠️ Document for this specific day has not been uploaded by the admin yet.");
+      await ctx.reply("The document for this day has not been uploaded by the admin yet.");
     }
-
   } catch (err) {
     console.error("Telegram handler error:", err);
   }
@@ -54,6 +56,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Webhook processing error:", error);
+    // Always return 200 to Telegram, or it will keep retrying the same update.
     return NextResponse.json({ ok: true });
   }
 }

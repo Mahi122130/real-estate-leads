@@ -1,67 +1,18 @@
-export interface DayContent {
+export interface DayConfig {
   day: number;
   title: string;
   description: string;
-  videoUrl: string; // Embed URL (YouTube, Vimeo, etc.)
-  documentUrl: string; // Secure PDF/Document link sent via WhatsApp/Telegram
+  videoUrl: string;
+  documentUrl: string;
   isUnlockedDefault: boolean;
 }
 
-export const DAYS_CONFIG: DayContent[] = [
-  {
-    day: 1,
-    title: "Day 1: Introduction to Real Estate Mastery",
-    description: "Discover the foundational strategies to scale your portfolio.",
-    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ", // Swap this out easily later
-    documentUrl: "https://example.com/docs/day-1-guide.pdf",
-    isUnlockedDefault: true,
-  },
-  {
-    day: 2,
-    title: "Day 2: Finding Undervalued Properties",
-    description: "Learn how to spot hidden gems in competitive markets.",
-    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-    documentUrl: "https://example.com/docs/day-2-guide.pdf",
-    isUnlockedDefault: false,
-  },
-  {
-    day: 3,
-    title: "Day 3: Advanced Negotiation Tactics",
-    description: "Close deals with confidence and maximize profit margins.",
-    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-    documentUrl: "https://example.com/docs/day-3-guide.pdf",
-    isUnlockedDefault: false,
-  },
-  {
-    day: 4,
-    title: "Day 4: Financing & Capital Raising",
-    description: "Structuring creative funding for your real estate acquisitions.",
-    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-    documentUrl: "https://example.com/docs/day-4-guide.pdf",
-    isUnlockedDefault: false,
-  },
-  {
-    day: 5,
-    title: "Day 5: Property Evaluation & Inspection",
-    description: "Avoid costly mistakes by auditing structural integrity.",
-    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-    documentUrl: "https://example.com/docs/day-5-guide.pdf",
-    isUnlockedDefault: false,
-  },
-  {
-    day: 6,
-    title: "Day 6: Scaling & Automation",
-    description: "Building systems that run your real estate business on autopilot.",
-    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-    documentUrl: "https://example.com/docs/day-6-guide.pdf",
-    isUnlockedDefault: false,
-  },
-  {
-    day: 7,
-    title: "Day 7: Closing Your First Major Deal",
-    description: "The complete roadmap from offer to ownership.",
-    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-    documentUrl: "https://example.com/docs/day-7-guide.pdf",
-    isUnlockedDefault: false,
-  },
+export const DAYS_CONFIG: DayConfig[] = [
+  { day: 1, title: "Masterclass Day 1", description: "Introduction to Real Estate Investing", videoUrl: "", documentUrl: "", isUnlockedDefault: true },
+  { day: 2, title: "Masterclass Day 2", description: "Finding Off-Market Deals", videoUrl: "", documentUrl: "", isUnlockedDefault: false },
+  { day: 3, title: "Masterclass Day 3", description: "Financing Strategies", videoUrl: "", documentUrl: "", isUnlockedDefault: false },
+  { day: 4, title: "Masterclass Day 4", description: "Negotiation Tactics", videoUrl: "", documentUrl: "", isUnlockedDefault: false },
+  { day: 5, title: "Masterclass Day 5", description: "Property Management Basics", videoUrl: "", documentUrl: "", isUnlockedDefault: false },
+  { day: 6, title: "Masterclass Day 6", description: "Scaling Your Portfolio", videoUrl: "", documentUrl: "", isUnlockedDefault: false },
+  { day: 7, title: "Masterclass Day 7", description: "Exit Strategies & Next Steps", videoUrl: "", documentUrl: "", isUnlockedDefault: false },
 ];

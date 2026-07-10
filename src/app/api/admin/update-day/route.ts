@@ -4,23 +4,11 @@ import clientPromise from "../../../../components/lib/mongodb";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const { day, title, description, videoUrl, documentUrl, isLocked } = body;
 
-    const {
-      day,
-      title,
-      description,
-      videoUrl,
-      documentUrl,
-      isLocked,
-    } = body;
-
-    // Validate required field
     if (!day || isNaN(Number(day))) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Valid day number is required.",
-        },
+        { success: false, error: "Valid day number is required." },
         { status: 400 }
       );
     }
@@ -40,20 +28,11 @@ export async function POST(req: NextRequest) {
 
     await db.collection("days").updateOne(
       { day: Number(day) },
-      {
-        $set: updateData,
-        $setOnInsert: {
-          createdAt: new Date(),
-        },
-      },
-      {
-        upsert: true,
-      }
+      { $set: updateData, $setOnInsert: { createdAt: new Date() } },
+      { upsert: true }
     );
 
-    const updatedDay = await db.collection("days").findOne({
-      day: Number(day),
-    });
+    const updatedDay = await db.collection("days").findOne({ day: Number(day) });
 
     return NextResponse.json({
       success: true,
@@ -62,12 +41,8 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("Update Day API Error:", error);
-
     return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to update day configuration.",
-      },
+      { success: false, error: "Failed to update day configuration." },
       { status: 500 }
     );
   }

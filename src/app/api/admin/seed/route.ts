@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/components/lib/mongodb";
-import { DAYS_CONFIG } from "@/components/data/daysConfig";
+import clientPromise from "../../../../components/lib/mongodb";
+import { DAYS_CONFIG } from "../../../../components/data/daysConfig";
 
+// Visit this route once (while logged into the protected /api/admin/* area)
+// to populate the "days" collection with the default 7-day structure.
+// Safe to re-run: it upserts, so it will never duplicate rows.
 export async function GET() {
   try {
     const client = await clientPromise;

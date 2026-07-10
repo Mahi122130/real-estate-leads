@@ -3,6 +3,18 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import fs from "fs";
 
+// IMPORTANT (production note):
+// This writes to the local filesystem, which works fine on a traditional
+// Node server (VPS, Docker, Render, Railway, etc). It will NOT persist on
+// Vercel or other serverless platforms, since their filesystem is read-only
+// outside of /tmp and is wiped between invocations.
+//
+// If you deploy to Vercel, replace the writeFile logic below with an
+// upload to a storage provider instead (e.g. Vercel Blob, S3, Cloudinary,
+// UploadThing) and store the returned public URL the same way this route
+// currently returns `url`. Everything downstream (the admin form, the
+// "documentUrl"/"videoUrl" fields) only cares that it gets back a public URL,
+// so the rest of the app does not need to change.
 export async function POST(req: Request) {
   try {
     const data = await req.formData();
@@ -22,7 +34,8 @@ export async function POST(req: Request) {
       await mkdir(uploadDir, { recursive: true });
     }
 
-    const filename = `day_${day}_${type}_${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const filename = `day_${day}_${type}_${Date.now()}_${safeName}`;
     const filepath = path.join(uploadDir, filename);
     await writeFile(filepath, buffer);
 

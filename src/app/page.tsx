@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
-import { DAYS_CONFIG } from "../components/data/daysConfig";
+import React, { useState, useEffect } from "react";
 import { submitLeadAndGetRedirect } from "./actions/leadActions";
-import { Lock, CheckCircle2, Send, PlayCircle, Loader2 } from "lucide-react";
+import { Lock, Send, PlayCircle, Loader2 } from "lucide-react";
 
 export default function LandingPage() {
+  const [days, setDays] = useState<any[]>([]);
   const [selectedDay, setSelectedDay] = useState(1);
-  const [unlockedDays, setUnlockedDays] = useState<number[]>([1]); // Day 1 unlocked by default
+  const [unlockedDays, setUnlockedDays] = useState<number[]>([1]);
+  const [isLoading, setIsLoading] = useState(true);
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -18,10 +19,35 @@ export default function LandingPage() {
     whatsapp: "",
   });
 
-  const activeContent = DAYS_CONFIG.find((d) => d.day === selectedDay) || DAYS_CONFIG[0];
+  useEffect(() => {
+    fetchLiveDays();
+  }, []);
 
-  const handleDaySelect = (dayNum: number) => {
-    if (dayNum === 1 || unlockedDays.includes(dayNum)) {
+  async function fetchLiveDays() {
+    try {
+      const res = await fetch("/api/days");
+      const data = await res.json();
+      if (data.success && data.days.length > 0) {
+        setDays(data.days);
+      }
+    } catch (error) {
+      console.error("Failed to load live days configuration:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const activeContent = days.find((d) => d.day === selectedDay) || days[0] || {
+    day: 1,
+    title: "Masterclass Day 1",
+    description: "Loading masterclass details...",
+    videoUrl: "",
+    documentUrl: "",
+    isLocked: false
+  };
+
+  const handleDaySelect = (dayNum: number, isLocked: boolean) => {
+    if (dayNum === 1 || (!isLocked && unlockedDays.includes(dayNum))) {
       setSelectedDay(dayNum);
     }
   };
@@ -45,7 +71,6 @@ export default function LandingPage() {
       });
 
       if (res.success) {
-        // Unlock next day conditionally upon submission
         if (selectedDay < 7 && !unlockedDays.includes(selectedDay + 1)) {
           setUnlockedDays([...unlockedDays, selectedDay + 1]);
         }
@@ -58,6 +83,14 @@ export default function LandingPage() {
       setLoading(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+        <p className="text-sm text-slate-400 animate-pulse">Loading Hub...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center py-10 px-4">
@@ -75,25 +108,25 @@ export default function LandingPage() {
 
         {/* Day Selector Navigation */}
         <div className="grid grid-cols-2 sm:grid-cols-7 gap-2">
-          {DAYS_CONFIG.map((d) => {
-            const isUnlocked = d.day === 1 || unlockedDays.includes(d.day);
+          {days.map((d) => {
+            const isUnlocked = d.day === 1 || (!d.isLocked && unlockedDays.includes(d.day));
             const isSelected = selectedDay === d.day;
 
             return (
               <button
                 key={d.day}
-                onClick={() => handleDaySelect(d.day)}
-                disabled={!isUnlocked}
+                onClick={() => handleDaySelect(d.day, d.isLocked)}
+                disabled={!isUnlocked || d.isLocked}
                 className={`p-3 rounded-xl flex flex-col items-center justify-center border transition-all ${
                   isSelected
                     ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20"
-                    : isUnlocked
-                    ? "bg-slate-900 border-slate-800 text-slate-200 hover:border-slate-700"
+                    : isUnlocked && !d.isLocked
+                    ? "bg-slate-900 border-slate-800 text-slate-200 hover:border-slate-700 cursor-pointer"
                     : "bg-slate-900/50 border-slate-900 text-slate-600 cursor-not-allowed"
                 }`}
               >
                 <div className="flex items-center gap-1 mb-1">
-                  {isUnlocked ? (
+                  {isUnlocked && !d.isLocked ? (
                     <PlayCircle className="w-4 h-4" />
                   ) : (
                     <Lock className="w-4 h-4" />
@@ -111,17 +144,21 @@ export default function LandingPage() {
             <h2 className="text-xl font-semibold text-white">{activeContent.title}</h2>
             <p className="text-sm text-slate-400">{activeContent.description}</p>
           </div>
-          <div className="relative aspect-video w-full bg-slate-950 rounded-xl overflow-hidden border border-slate-800">
-            <iframe
-              src={activeContent.videoUrl}
-              title={activeContent.title}
-              className="absolute top-0 left-0 w-full h-full"
-              allowFullScreen
-            />
+          <div className="relative aspect-video w-full bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
+            {activeContent.videoUrl ? (
+              <iframe
+                src={activeContent.videoUrl.includes("watch?v=") ? activeContent.videoUrl.replace("watch?v=", "embed/") : activeContent.videoUrl}
+                title={activeContent.title}
+                className="absolute top-0 left-0 w-full h-full"
+                allowFullScreen
+              />
+            ) : (
+              <p className="text-xs text-slate-500">No video link configured for Day {selectedDay}</p>
+            )}
           </div>
         </div>
 
-        {/* Scroll down to Lead Capture Form */}
+        {/* Lead Capture Form */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6">
           <div className="border-b border-slate-800 pb-4">
             <h3 className="text-lg font-semibold text-white">Get Day {selectedDay} Document</h3>
@@ -139,7 +176,7 @@ export default function LandingPage() {
                 value={formData.name}
                 onChange={handleInputChange}
                 placeholder="John Doe"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500 text-white"
               />
             </div>
             <div className="space-y-2">
@@ -150,7 +187,7 @@ export default function LandingPage() {
                 value={formData.email}
                 onChange={handleInputChange}
                 placeholder="john@example.com"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500 text-white"
               />
             </div>
             <div className="space-y-2">
@@ -161,7 +198,7 @@ export default function LandingPage() {
                 value={formData.phone}
                 onChange={handleInputChange}
                 placeholder="+1 555 0199"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500 text-white"
               />
             </div>
             <div className="space-y-2">
@@ -172,7 +209,7 @@ export default function LandingPage() {
                 value={formData.whatsapp}
                 onChange={handleInputChange}
                 placeholder="+15550199"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500 text-white"
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
@@ -183,7 +220,7 @@ export default function LandingPage() {
                 value={formData.telegram}
                 onChange={handleInputChange}
                 placeholder="@username"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500 text-white"
               />
             </div>
           </div>
@@ -193,7 +230,7 @@ export default function LandingPage() {
             <button
               onClick={() => handleSubmit("whatsapp")}
               disabled={loading}
-              className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium p-3.5 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+              className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium p-3.5 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
               Send Document via WhatsApp
@@ -201,7 +238,7 @@ export default function LandingPage() {
             <button
               onClick={() => handleSubmit("telegram")}
               disabled={loading}
-              className="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-medium p-3.5 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+              className="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-medium p-3.5 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
               Send Document via Telegram

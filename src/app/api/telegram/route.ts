@@ -23,13 +23,13 @@ bot.start(async (ctx) => {
     // Pull strictly the single day configuration requested
     const content = DAYS_CONFIG.find((d) => d.day === dayNum) || DAYS_CONFIG[0];
 
-    // Send single message for the specific day
+    // Send text message for the documentation only (no video link)
     await ctx.reply(
-      `Welcome to the Real Estate Masterclass!\n\nHere is your requested content for *${content.title}*:\n\n🎥 *Video Lesson:* ${content.videoUrl || "Available on portal"}\n\nEnjoy the training!`,
+      `Welcome to the Real Estate Masterclass!\n\nHere is your requested document for *${content.title}*:\n\nEnjoy the training!`,
       { parse_mode: "Markdown" }
     );
 
-    // Send the single PDF file for this day only
+    // Send the single PDF file for this specific day
     if (content.documentUrl && !content.documentUrl.includes("example.com")) {
       await ctx.telegram.sendDocument(ctx.chat.id, { url: content.documentUrl });
     }

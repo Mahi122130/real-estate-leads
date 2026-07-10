@@ -1,67 +1,103 @@
-import clientPromise from "@/components/lib/mongodb";
-import { revalidatePath } from "next/cache";
+"use client";
 
-export const dynamic = "force-dynamic";
+import { useState, useEffect } from "react";
 
-export default async function AdminDashboard() {
-  const client = await clientPromise;
-  const db = client.db("luxury_leads");
-  
-  const leads = await db
-    .collection("leads")
-    .find({})
-    .sort({ createdAt: -1 })
-    .toArray();
+export default function AdminDashboard() {
+  const [leads, setLeads] = useState<any[]>([]);
+  const [days, setDays] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [savingDay, setSavingDay] = useState<number | null>(null);
+  const [statusMessage, setStatusMessage] = useState<{ day: number; text: string; type: "success" | "error" } | null>(null);
 
-  let days = await db.collection("days").find({}).sort({ day: 1 }).toArray();
+  // Fetch initial admin data on mount
+  useEffect(() => {
+    fetchAdminData();
+  }, []);
 
-  if (days.length === 0) {
-    const initialDays = Array.from({ length: 7 }, (_, i) => ({
-      day: i + 1,
-      title: `Day ${i + 1} Masterclass`,
-      videoUrl: "",
-      documentUrl: "",
-      isLocked: i !== 0,
-    }));
-    await db.collection("days").insertMany(initialDays);
-    days = await db.collection("days").find({}).sort({ day: 1 }).toArray();
+  async function fetchAdminData() {
+    try {
+      const res = await fetch("/api/admin/data");
+      const data = await res.json();
+      if (data.success) {
+        setLeads(data.leads || []);
+        setDays(data.days || []);
+      }
+    } catch (error) {
+      console.error("Failed to load admin data:", error);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
-  // Dedicated Server Action inline
-  async function handleDayUpdate(formData: FormData) {
-    "use server";
-    const dayNum = parseInt(formData.get("day") as string, 10);
+  // Handle saving individual day configuration via URL inputs
+  async function handleSave(e: React.FormEvent<HTMLFormElement>, dayNum: number) {
+    e.preventDefault();
+    setSavingDay(dayNum);
+    setStatusMessage(null);
+
+    const formData = new FormData(e.currentTarget);
     const videoUrl = formData.get("videoUrl") as string;
     const documentUrl = formData.get("documentUrl") as string;
     const isLocked = formData.get("isLocked") === "on";
 
-    const clientConnect = await clientPromise;
-    const activeDb = clientConnect.db("luxury_leads");
+    try {
+      const res = await fetch("/api/admin/update-day", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ day: dayNum, videoUrl, documentUrl, isLocked }),
+      });
 
-    await activeDb.collection("days").updateOne(
-      { day: dayNum },
-      { $set: { videoUrl, documentUrl, isLocked } },
-      { upsert: true }
+      const data = await res.json();
+      if (data.success) {
+        setStatusMessage({ day: dayNum, text: "Saved successfully!", type: "success" });
+        // Update local state smoothly
+        setDays((prev) =>
+          prev.map((d) => (d.day === dayNum ? { ...d, videoUrl, documentUrl, isLocked } : d))
+        );
+      } else {
+        setStatusMessage({ day: dayNum, text: "Save failed. Try again.", type: "error" });
+      }
+    } catch (err) {
+      setStatusMessage({ day: dayNum, text: "Network error occurred.", type: "error" });
+    } finally {
+      setSavingDay(null);
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+        <p className="text-sm text-slate-400 animate-pulse">Loading Admin Dashboard...</p>
+      </div>
     );
-
-    revalidatePath("/admin");
   }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-8 space-y-12">
       <div className="max-w-6xl mx-auto space-y-10">
         
+        {/* SECTION 1: MANAGE DAYS CONFIGURATION (URL BASED) */}
         <div className="space-y-6">
           <div className="border-b border-slate-800 pb-4">
             <h1 className="text-2xl font-bold text-white">Admin Panel: Manage Day Files & Links</h1>
-            <p className="text-slate-400 text-sm">Update URLs for documents and videos per day.</p>
+            <p className="text-slate-400 text-sm">Enter direct public links for video portal display and automated Telegram document dispatch.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {days.map((d) => (
-              <form key={d.day} action={handleDayUpdate} className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4 shadow-lg">
-                <input type="hidden" name="day" value={d.day} />
-                <h2 className="text-lg font-semibold text-white">Day {d.day}: {d.title}</h2>
+              <form 
+                key={d.day} 
+                onSubmit={(e) => handleSave(e, d.day)} 
+                className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4 shadow-lg"
+              >
+                <div className="flex justify-between items-center">
+                  <h2 className="text-lg font-semibold text-white">Day {d.day}: {d.title}</h2>
+                  {statusMessage && statusMessage.day === d.day && (
+                    <span className={`text-xs px-2 py-0.5 rounded ${statusMessage.type === "success" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-rose-500/20 text-rose-400 border border-rose-500/30"}`}>
+                      {statusMessage.text}
+                    </span>
+                  )}
+                </div>
                 
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">Video URL (Portal)</label>
@@ -90,14 +126,19 @@ export default async function AdminDashboard() {
                   <label htmlFor={`lock_${d.day}`} className="text-xs font-medium text-slate-300">Lock this day on user portal</label>
                 </div>
 
-                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors cursor-pointer">
-                  Save Day {d.day} Changes
+                <button 
+                  type="submit" 
+                  disabled={savingDay === d.day} 
+                  className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
+                >
+                  {savingDay === d.day ? "Saving Changes..." : `Save Day ${d.day} Changes`}
                 </button>
               </form>
             ))}
           </div>
         </div>
 
+        {/* SECTION 2: LEADS MANAGEMENT TABLE */}
         <div className="space-y-4">
           <div className="flex justify-between items-center border-b border-slate-800 pb-4">
             <h1 className="text-2xl font-bold text-white">Admin Leads Management</h1>
@@ -121,7 +162,7 @@ export default async function AdminDashboard() {
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {leads.map((lead) => (
-                  <tr key={lead._id.toString()} className="hover:bg-slate-850 transition-colors">
+                  <tr key={lead._id.toString()} className="hover:bg-slate-900/50 transition-colors">
                     <td className="p-4 font-medium text-white">{lead.name}</td>
                     <td className="p-4 text-slate-300">{lead.email}</td>
                     <td className="p-4 text-slate-300">{lead.phone}</td>

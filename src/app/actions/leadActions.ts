@@ -13,17 +13,35 @@ interface LeadData {
   channel: "whatsapp" | "telegram";
 }
 
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 submission per email per minute
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 export async function submitLeadAndGetRedirect(data: LeadData) {
   try {
     if (!data.name || !data.email || !data.phone) {
       return { success: false, error: "Please complete all required fields." };
     }
 
+    if (!isValidEmail(data.email)) {
+      return { success: false, error: "Please enter a valid email address." };
+    }
+
     const client = await clientPromise;
     const db = client.db("luxury_leads");
 
-    // Save the lead first so we never lose a contact, even if the
-    // redirect step below fails for some reason.
+    // Basic spam guard: block repeat submissions from the same email
+    // within the rate-limit window instead of writing a new lead every time.
+    const recentLead = await db.collection("leads").findOne(
+      { email: data.email, createdAt: { $gte: new Date(Date.now() - RATE_LIMIT_WINDOW_MS) } },
+      { sort: { createdAt: -1 } }
+    );
+    if (recentLead) {
+      return { success: false, error: "Please wait a moment before submitting again." };
+    }
+
     const leadResult = await db.collection("leads").insertOne({
       name: data.name,
       email: data.email,

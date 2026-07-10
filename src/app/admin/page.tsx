@@ -6,7 +6,7 @@ export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
   const [days, setDays] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [uploadingDay, setUploadingDay] = useState<{ day: number; type: string } | null>(null);
+  const [uploadingDay, setUploadingDay] = useState<number | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ day: number; text: string; type: "success" | "error" } | null>(null);
 
   useEffect(() => {
@@ -28,35 +28,23 @@ export default function AdminDashboard() {
     }
   }
 
-  // Handle uploading files and saving day configurations
-  async function handleFileUploadAndSave(e: React.FormEvent<HTMLFormElement>, dayNum: number) {
+  // Handle saving video URL and uploading document file
+  async function handleSave(e: React.FormEvent<HTMLFormElement>, dayNum: number) {
     e.preventDefault();
+    setUploadingDay(dayNum);
     setStatusMessage(null);
 
     const formElement = e.currentTarget;
     const formData = new FormData(formElement);
-    const videoFile = formData.get("videoFile") as File;
+    const videoUrl = formData.get("videoUrl") as string;
     const docFile = formData.get("docFile") as File;
     const isLocked = formData.get("isLocked") === "on";
 
-    let videoUrl = formData.get("existingVideoUrl") as string;
     let documentUrl = formData.get("existingDocUrl") as string;
 
     try {
-      if (videoFile && videoFile.size > 0) {
-        setUploadingDay({ day: dayNum, type: "video" });
-        const vData = new FormData();
-        vData.append("file", videoFile);
-        vData.append("type", "video");
-        vData.append("day", dayNum.toString());
-
-        const vRes = await fetch("/api/admin/upload", { method: "POST", body: vData });
-        const vJson = await vRes.json();
-        if (vJson.success) videoUrl = vJson.url;
-      }
-
+      // Upload PDF document file if a new one is selected
       if (docFile && docFile.size > 0) {
-        setUploadingDay({ day: dayNum, type: "document" });
         const dData = new FormData();
         dData.append("file", docFile);
         dData.append("type", "document");
@@ -64,9 +52,14 @@ export default function AdminDashboard() {
 
         const dRes = await fetch("/api/admin/upload", { method: "POST", body: dData });
         const dJson = await dRes.json();
-        if (dJson.success) documentUrl = dJson.url;
+        if (dJson.success) {
+          documentUrl = dJson.url;
+        } else {
+          throw new Error(dJson.error || "Document upload failed");
+        }
       }
 
+      // Save complete update to MongoDB database
       const saveRes = await fetch("/api/admin/update-day", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,15 +68,15 @@ export default function AdminDashboard() {
 
       const saveData = await saveRes.json();
       if (saveData.success) {
-        setStatusMessage({ day: dayNum, text: "Files and changes saved successfully!", type: "success" });
+        setStatusMessage({ day: dayNum, text: "Changes saved successfully!", type: "success" });
         setDays((prev) =>
           prev.map((d) => (d.day === dayNum ? { ...d, videoUrl, documentUrl, isLocked } : d))
         );
       } else {
-        setStatusMessage({ day: dayNum, text: "Failed to persist day updates.", type: "error" });
+        setStatusMessage({ day: dayNum, text: "Failed to save updates.", type: "error" });
       }
-    } catch (err) {
-      setStatusMessage({ day: dayNum, text: "Error uploading files.", type: "error" });
+    } catch (err: any) {
+      setStatusMessage({ day: dayNum, text: err.message || "Error saving configuration.", type: "error" });
     } finally {
       setUploadingDay(null);
     }
@@ -101,21 +94,20 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-slate-950 text-slate-100 p-8 space-y-12">
       <div className="max-w-6xl mx-auto space-y-10">
         
-        {/* SECTION 1: MANAGE DAYS CONFIGURATION & FILE UPLOADS */}
+        {/* SECTION 1: MANAGE DAYS CONFIGURATION */}
         <div className="space-y-6">
           <div className="border-b border-slate-800 pb-4">
-            <h1 className="text-2xl font-bold text-white">Admin Panel: Upload Day Files & Masterclass Links</h1>
-            <p className="text-slate-400 text-sm">Upload local documents and videos to immediately sync with the frontend portal and bot delivery systems.</p>
+            <h1 className="text-2xl font-bold text-white">Admin Panel: Manage Day Files & Video Links</h1>
+            <p className="text-slate-400 text-sm">Provide video stream URLs and upload PDF documents for automated Telegram and portal dispatch.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {days.map((d) => (
               <form 
                 key={d.day} 
-                onSubmit={(e) => handleFileUploadAndSave(e, d.day)} 
+                onSubmit={(e) => handleSave(e, d.day)} 
                 className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4 shadow-lg"
               >
-                <input type="hidden" name="existingVideoUrl" value={d.videoUrl || ""} />
                 <input type="hidden" name="existingDocUrl" value={d.documentUrl || ""} />
 
                 <div className="flex justify-between items-center">
@@ -127,17 +119,19 @@ export default function AdminDashboard() {
                   )}
                 </div>
                 
+                {/* Video URL Input */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Upload Video File</label>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Video URL (YouTube/Vimeo)</label>
                   <input 
-                    type="file" 
-                    name="videoFile" 
-                    accept="video/*"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-300 file:bg-blue-600 file:border-0 file:rounded file:text-white file:px-2 file:py-1 file:cursor-pointer"
+                    type="text" 
+                    name="videoUrl" 
+                    defaultValue={d.videoUrl || ""} 
+                    placeholder="https://youtube.com/..." 
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500"
                   />
-                  {d.videoUrl && <p className="text-[10px] text-blue-400 mt-1 truncate">Current: {d.videoUrl}</p>}
                 </div>
 
+                {/* PDF Document File Upload */}
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">Upload PDF Document File</label>
                   <input 
@@ -146,7 +140,7 @@ export default function AdminDashboard() {
                     accept=".pdf,.doc,.docx"
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-300 file:bg-blue-600 file:border-0 file:rounded file:text-white file:px-2 file:py-1 file:cursor-pointer"
                   />
-                  {d.documentUrl && <p className="text-[10px] text-blue-400 mt-1 truncate">Current: {d.documentUrl}</p>}
+                  {d.documentUrl && <p className="text-[10px] text-blue-400 mt-1 truncate">Current file: {d.documentUrl}</p>}
                 </div>
 
                 <div className="flex items-center space-x-2 pt-2">
@@ -156,17 +150,17 @@ export default function AdminDashboard() {
 
                 <button 
                   type="submit" 
-                  disabled={uploadingDay?.day === d.day} 
+                  disabled={uploadingDay === d.day} 
                   className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
                 >
-                  {uploadingDay?.day === d.day ? `Uploading ${uploadingDay?.type ?? "file"}...` : `Save Day ${d.day} Changes`}
+                  {uploadingDay === d.day ? "Saving Changes..." : `Save Day ${d.day} Changes`}
                 </button>
               </form>
             ))}
           </div>
         </div>
 
-        {/* SECTION 2: FILLED FORM LEADS MANAGEMENT TABLE */}
+        {/* SECTION 2: LEADS TABLE */}
         <div className="space-y-4">
           <div className="flex justify-between items-center border-b border-slate-800 pb-4">
             <h1 className="text-2xl font-bold text-white">Users Who Filled Out The Form (Leads)</h1>

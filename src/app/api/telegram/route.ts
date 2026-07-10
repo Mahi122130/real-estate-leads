@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { Telegraf, Input } from "telegraf";
+import { Telegraf } from "telegraf";
 import clientPromise from "../../../components/lib/mongodb";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -44,11 +44,24 @@ bot.start(async (ctx) => {
     );
 
     if (rawDocumentUrl && rawDocumentUrl.trim() !== "") {
-      const cleanUrl = getCleanDownloadUrl(rawDocumentUrl);
       try {
-        await ctx.telegram.sendDocument(ctx.chat.id, Input.fromURL(cleanUrl));
+        const cleanUrl = getCleanDownloadUrl(rawDocumentUrl);
+        const response = await fetch(cleanUrl);
+        
+        if (!response.ok) throw new Error("Failed to fetch file from source");
+        
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        
+        // Extract a filename or fallback
+        const filename = `Day_${dayNum}_Document.pdf`;
+
+        await ctx.replyWithDocument({
+          source: buffer,
+          filename: filename,
+        });
       } catch (sendErr) {
-        console.error(`Failed to stream document file for day ${dayNum}:`, sendErr);
+        console.error(`Failed to download and send buffer for day ${dayNum}:`, sendErr);
         await ctx.reply(`📄 *Direct Download Link:* [Click here to download your document](${rawDocumentUrl})`, {
           parse_mode: "Markdown",
         });

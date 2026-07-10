@@ -27,7 +27,7 @@ export default async function AdminDashboard() {
     days = await db.collection("days").find({}).sort({ day: 1 }).toArray();
   }
 
-  // Server Action to update day content
+  // Dedicated Server Action inline
   async function handleDayUpdate(formData: FormData) {
     "use server";
     const dayNum = parseInt(formData.get("day") as string, 10);
@@ -35,10 +35,10 @@ export default async function AdminDashboard() {
     const documentUrl = formData.get("documentUrl") as string;
     const isLocked = formData.get("isLocked") === "on";
 
-    const client = await clientPromise;
-    const db = client.db("luxury_leads");
+    const clientConnect = await clientPromise;
+    const activeDb = clientConnect.db("luxury_leads");
 
-    await db.collection("days").updateOne(
+    await activeDb.collection("days").updateOne(
       { day: dayNum },
       { $set: { videoUrl, documentUrl, isLocked } },
       { upsert: true }
@@ -54,12 +54,12 @@ export default async function AdminDashboard() {
         <div className="space-y-6">
           <div className="border-b border-slate-800 pb-4">
             <h1 className="text-2xl font-bold text-white">Admin Panel: Manage Day Files & Links</h1>
-            <p className="text-slate-400 text-sm">Update the URL for the document and video per day.</p>
+            <p className="text-slate-400 text-sm">Update URLs for documents and videos per day.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {days.map((d) => (
-              <form key={d.day} action={handleDayUpdate} method="POST" className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4 shadow-lg">
+              <form key={d.day} action={handleDayUpdate} className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4 shadow-lg">
                 <input type="hidden" name="day" value={d.day} />
                 <h2 className="text-lg font-semibold text-white">Day {d.day}: {d.title}</h2>
                 

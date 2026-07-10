@@ -1,8 +1,9 @@
 "use server";
 
 import clientPromise from "../../components/lib/mongodb";
+import { ObjectId } from "mongodb";
 
-export async function submitLeadAndGetRedirect(data: {
+interface LeadData {
   name: string;
   email: string;
   phone: string;
@@ -10,12 +11,22 @@ export async function submitLeadAndGetRedirect(data: {
   whatsapp?: string;
   selectedDay: number;
   channel: "whatsapp" | "telegram";
-}) {
+}
+
+export async function submitLeadAndGetRedirect(data: LeadData) {
   try {
+    if (!data.name || !data.email || !data.phone) {
+      return {
+        success: false,
+        error: "Please complete all required fields.",
+      };
+    }
+
     const client = await clientPromise;
     const db = client.db("luxury_leads");
 
-    await db.collection("leads").insertOne({
+    // Save lead
+    const leadResult = await db.collection("leads").insertOne({
       name: data.name,
       email: data.email,
       phone: data.phone,
@@ -26,27 +37,66 @@ export async function submitLeadAndGetRedirect(data: {
       createdAt: new Date(),
     });
 
-    const dayConfig = await db.collection("days").findOne({ day: data.selectedDay });
-    const documentUrl = dayConfig?.documentUrl || "";
-    const videoUrl = dayConfig?.videoUrl || "";
+    const leadId = (leadResult.insertedId as ObjectId).toString();
+
+    // Get latest day configuration
+    const day = await db.collection("days").findOne({
+      day: Number(data.selectedDay),
+    });
+
+    if (!day) {
+      return {
+        success: false,
+        error: "Training day not found.",
+      };
+    }
 
     let redirectUrl = "";
 
     if (data.channel === "whatsapp") {
-      const message = encodeURIComponent(`Hello ${data.name}, here is your training document for Day ${data.selectedDay}: ${documentUrl}`);
-      const cleanPhone = data.whatsapp ? data.whatsapp.replace(/\D/g, "") : data.phone.replace(/\D/g, "");
-      redirectUrl = `https://wa.me/${cleanPhone}?text=${message}`;
+      const phone =
+        (data.whatsapp || data.phone).replace(/\D/g, "");
+
+      const message = encodeURIComponent(
+        `Hi ${data.name},
+
+Thank you for joining our Real Estate Masterclass.
+
+📄 Day ${data.selectedDay}: ${day.title}
+
+Download your document here:
+${day.documentUrl}
+
+Enjoy your training!`
+      );
+
+      redirectUrl = `https://wa.me/${phone}?text=${message}`;
     } else {
-      // Telegram: If you have a bot username set in your env, deep-link it. 
-      // Otherwise fallback to sending via t.me or direct file trigger.
-      const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "YourBotUsername";
-      // This opens the bot with a start payload so your bot backend handles sending the file natively
-      redirectUrl = `https://t.me/${botUsername}?start=day_${data.selectedDay}`;
+      const botUsername =
+        process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
+
+      if (!botUsername) {
+        return {
+          success: false,
+          error: "Telegram bot username is missing.",
+        };
+      }
+
+      // Pass both day and lead id
+      redirectUrl = `https://t.me/${botUsername}?start=day_${data.selectedDay}_${leadId}`;
     }
 
-    return { success: true, redirectUrl };
+    return {
+      success: true,
+      redirectUrl,
+      leadId,
+    };
   } catch (error) {
-    console.error("Lead submission error:", error);
-    return { success: false, error: "Failed to process lead" };
+    console.error("Lead Submission Error:", error);
+
+    return {
+      success: false,
+      error: "Something went wrong while saving the lead.",
+    };
   }
 }

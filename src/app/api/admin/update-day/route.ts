@@ -1,34 +1,74 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "../../../../components/lib/mongodb";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { day, videoUrl, documentUrl, isLocked } = body;
 
-    if (!day) {
-      return NextResponse.json({ success: false, error: "Day number is required" }, { status: 400 });
+    const {
+      day,
+      title,
+      description,
+      videoUrl,
+      documentUrl,
+      isLocked,
+    } = body;
+
+    // Validate required field
+    if (!day || isNaN(Number(day))) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Valid day number is required.",
+        },
+        { status: 400 }
+      );
     }
 
     const client = await clientPromise;
     const db = client.db("luxury_leads");
 
-    // Update or insert configuration for the selected day
+    const updateData = {
+      day: Number(day),
+      ...(title !== undefined && { title }),
+      ...(description !== undefined && { description }),
+      ...(videoUrl !== undefined && { videoUrl }),
+      ...(documentUrl !== undefined && { documentUrl }),
+      ...(isLocked !== undefined && { isLocked: Boolean(isLocked) }),
+      updatedAt: new Date(),
+    };
+
     await db.collection("days").updateOne(
       { day: Number(day) },
-      { 
-        $set: { 
-          videoUrl: videoUrl || "", 
-          documentUrl: documentUrl || "", 
-          isLocked: Boolean(isLocked) 
-        } 
+      {
+        $set: updateData,
+        $setOnInsert: {
+          createdAt: new Date(),
+        },
       },
-      { upsert: true }
+      {
+        upsert: true,
+      }
     );
 
-    return NextResponse.json({ success: true });
+    const updatedDay = await db.collection("days").findOne({
+      day: Number(day),
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Day ${day} updated successfully.`,
+      day: updatedDay,
+    });
   } catch (error) {
-    console.error("API update-day error:", error);
-    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
+    console.error("Update Day API Error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to update day configuration.",
+      },
+      { status: 500 }
+    );
   }
 }

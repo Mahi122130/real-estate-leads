@@ -1,42 +1,99 @@
 import { Telegraf } from "telegraf";
-// Fixed relative path: from src/bot.ts up one level to src/components/data/daysConfig.js
-import { DAYS_CONFIG } from "./components/data/daysConfig"; 
 import "dotenv/config";
+import { DAYS_CONFIG } from "./components/data/daysConfig";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
+
 if (!token) {
-  throw new Error("TELEGRAM_BOT_TOKEN is missing in environment variables.");
+  throw new Error("❌ TELEGRAM_BOT_TOKEN is missing in environment variables.");
 }
 
 const bot = new Telegraf(token);
 
-// Handle the /start command sent from the website button
+/**
+ * Handle /start command
+ * Payload example:
+ * https://t.me/your_bot?start=day_1_John
+ */
 bot.start(async (ctx) => {
-  const startPayload = ctx.payload; // Example: "day_1_John"
-  
-  // Parse out the day number from the payload string
-  let dayNum = 1;
-  if (startPayload && startPayload.startsWith("day_")) {
-    const parts = startPayload.split("_");
-    const parsed = parseInt(parts[1], 10);
-    if (!isNaN(parsed)) dayNum = parsed;
+  try {
+    const startPayload = ctx.payload;
+
+    console.log("User started bot:", {
+      id: ctx.from?.id,
+      username: ctx.from?.username,
+      payload: startPayload,
+    });
+
+    let dayNum = 1;
+
+    // Extract day number from payload
+    if (startPayload?.startsWith("day_")) {
+      const parts = startPayload.split("_");
+
+      const parsedDay = Number(parts[1]);
+
+      if (!isNaN(parsedDay)) {
+        dayNum = parsedDay;
+      }
+    }
+
+    // Find matching day content
+    const content =
+      DAYS_CONFIG.find((day) => day.day === dayNum) ||
+      DAYS_CONFIG[0];
+
+    await ctx.reply(
+      `🏠 *Welcome to the Real Estate Masterclass!*\n\n` +
+        `📚 Lesson: *${content.title}*\n\n` +
+        `📄 Your document:\n${content.documentUrl}\n\n` +
+        `Enjoy your training 🚀`,
+      {
+        parse_mode: "Markdown",
+      }
+    );
+
+  } catch (error) {
+    console.error("Telegram start error:", error);
+
+    await ctx.reply(
+      "Sorry, something went wrong while loading your document. Please try again."
+    );
   }
+});
 
-  // Find the matching content for that day
-  const content = DAYS_CONFIG.find((d) => d.day === dayNum) || DAYS_CONFIG[0];
 
-  // Send a welcome message and the secure document link
+/**
+ * Optional command
+ */
+bot.command("help", async (ctx) => {
   await ctx.reply(
-    `Welcome to the Real Estate Masterclass!\n\nHere is your requested document for *${content.title}*:\n${content.documentUrl}\n\nEnjoy the training!`,
-    { parse_mode: "Markdown" }
+    "Available commands:\n\n/start - Start your training\n/help - Show help"
   );
 });
 
-// Launch the bot (for development polling)
-bot.launch().then(() => {
-  console.log("Telegram bot is running...");
+
+/**
+ * Launch bot
+ */
+bot.launch()
+  .then(() => {
+    console.log("✅ Telegram bot is running...");
+  })
+  .catch((error) => {
+    console.error("❌ Failed to start Telegram bot:", error);
+  });
+
+
+/**
+ * Graceful shutdown
+ */
+process.once("SIGINT", () => {
+  console.log("Stopping bot...");
+  bot.stop("SIGINT");
 });
 
-// Enable graceful stop
-process.once("SIGINT", () => bot.stop("SIGINT"));
-process.once("SIGTERM", () => bot.stop("SIGTERM"));
+process.once("SIGTERM", () => {
+  console.log("Stopping bot...");
+  bot.stop("SIGTERM");
+});

@@ -10,19 +10,19 @@ export async function GET() {
     const db = client.db("luxury_leads");
 
     const dbDays = await db.collection("days").find({}).toArray();
-    const daysMap = new Map(dbDays.map((day) => [day.day, day]));
+    const daysMap = new Map(dbDays.map((day) => [Number(day.day), day]));
 
     const mergedDays = DAYS_CONFIG.map((defaultDay) => {
-      const savedDay = daysMap.get(defaultDay.day);
+      const savedDay = daysMap.get(Number(defaultDay.day));
 
       return {
         day: defaultDay.day,
-        title: savedDay?.title ?? defaultDay.title,
-        description: savedDay?.description ?? defaultDay.description,
-        videoUrl: savedDay?.videoUrl ?? defaultDay.videoUrl ?? "",
-        documentUrl: savedDay?.documentUrl ?? defaultDay.documentUrl ?? "",
-        isLocked: savedDay?.isLocked ?? !defaultDay.isUnlockedDefault,
-        updatedAt: savedDay?.updatedAt ?? null,
+        title: savedDay?.title || defaultDay.title,
+        description: savedDay?.description || defaultDay.description,
+        videoUrl: savedDay?.videoUrl || defaultDay.videoUrl || "",
+        documentUrl: savedDay?.documentUrl || defaultDay.documentUrl || "",
+        isLocked: savedDay?.isLocked !== undefined ? savedDay.isLocked : !defaultDay.isUnlockedDefault,
+        updatedAt: savedDay?.updatedAt || null,
       };
     });
 

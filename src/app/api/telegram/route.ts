@@ -33,7 +33,11 @@ bot.start(async (ctx) => {
     );
 
     if (documentUrl && !documentUrl.includes("example.com")) {
-      await ctx.telegram.sendDocument(ctx.chat.id, { url: documentUrl });
+      // Pass an object with url and explicit filename to preserve correct extension
+      await ctx.telegram.sendDocument(ctx.chat.id, {
+        url: documentUrl,
+        filename: `Day_${dayNum}_Masterclass_Resource.pdf`,
+      });
     } else {
       await ctx.reply("⚠️ Document for this specific day has not been uploaded by the admin yet.");
     }

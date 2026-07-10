@@ -21,10 +21,16 @@ bot.start(async (ctx) => {
 
   const content = DAYS_CONFIG.find((d) => d.day === dayNum) || DAYS_CONFIG[0];
 
+  // Send introductory text message
   await ctx.reply(
-    `Welcome to the Real Estate Masterclass!\n\nHere is your requested document for *${content.title}*:\n${content.documentUrl}\n\nEnjoy the training!`,
+    `Welcome to the Real Estate Masterclass!\n\nHere is your requested document for *${content.title}*:\n\nEnjoy the training!`,
     { parse_mode: "Markdown" }
   );
+
+  // Send the actual PDF document file directly
+  if (content.documentUrl) {
+    await ctx.telegram.sendDocument(ctx.chat.id, content.documentUrl);
+  }
 });
 
 // Next.js POST endpoint that Telegram will ping

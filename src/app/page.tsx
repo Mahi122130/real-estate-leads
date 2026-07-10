@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { submitLeadAndGetRedirect } from "./actions/leadActions";
 import { Lock, Send, PlayCircle, Loader2 } from "lucide-react";
+import { getEmbedVideoUrl } from "../components/lib/urlParser";
 
 export default function LandingPage() {
   const [days, setDays] = useState<any[]>([]);
@@ -94,18 +95,6 @@ export default function LandingPage() {
     }
   };
 
-  // Robust parsing utility for YouTube/Vimeo/Embed links
-  const getEmbedUrl = (url: string) => {
-    if (!url) return "";
-    if (url.includes("watch?v=")) {
-      return url.replace("watch?v=", "embed/");
-    }
-    if (url.includes("youtu.be/")) {
-      return url.replace("youtu.be/", "www.youtube.com/embed/");
-    }
-    return url;
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
@@ -170,7 +159,7 @@ export default function LandingPage() {
           <div className="relative aspect-video w-full bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
             {activeContent.videoUrl ? (
               <iframe
-                src={getEmbedUrl(activeContent.videoUrl)}
+                src={getEmbedVideoUrl(activeContent.videoUrl)}
                 title={activeContent.title}
                 className="absolute top-0 left-0 w-full h-full"
                 allowFullScreen

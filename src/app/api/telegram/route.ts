@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Telegraf } from "telegraf";
 import clientPromise from "../../../components/lib/mongodb";
+import { getDownloadableFileUrl } from "../../../components/lib/urlParser";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -25,17 +26,16 @@ bot.start(async (ctx) => {
     const dayData = await db.collection("days").findOne({ day: dayNum });
 
     const title = dayData?.title || `Day ${dayNum}`;
-    const documentUrl = dayData?.documentUrl;
+    const rawDocumentUrl = dayData?.documentUrl;
 
     await ctx.reply(
       `Welcome to the Real Estate Masterclass!\n\nHere is your requested document for *${title}*:\n\nEnjoy the training!`,
       { parse_mode: "Markdown" }
     );
 
-    if (documentUrl && !documentUrl.includes("example.com")) {
-      // Pass an object with url and explicit filename to preserve correct extension
+    if (rawDocumentUrl && !rawDocumentUrl.includes("example.com")) {
       await ctx.telegram.sendDocument(ctx.chat.id, {
-        url: documentUrl,
+        url: getDownloadableFileUrl(rawDocumentUrl),
         filename: `Day_${dayNum}_Masterclass_Resource.pdf`,
       });
     } else {

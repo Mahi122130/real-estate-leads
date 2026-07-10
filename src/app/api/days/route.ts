@@ -19,7 +19,6 @@ export async function GET() {
         day: defaultDay.day,
         title: savedDay?.title ?? defaultDay.title,
         description: savedDay?.description ?? defaultDay.description,
-        // Prioritize database value explicitly over static config default
         videoUrl: savedDay?.videoUrl ?? "",
         documentUrl: savedDay?.documentUrl ?? "",
         isLocked: savedDay?.isLocked !== undefined ? savedDay.isLocked : !defaultDay.isUnlockedDefault,

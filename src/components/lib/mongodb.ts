@@ -10,8 +10,6 @@ const options = {};
 let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
 
-// In development, reuse the connection across hot reloads.
-// In production, each serverless invocation gets its own client.
 if (process.env.NODE_ENV === "development") {
   const globalWithMongo = global as typeof globalThis & {
     _mongoClientPromise?: Promise<MongoClient>;

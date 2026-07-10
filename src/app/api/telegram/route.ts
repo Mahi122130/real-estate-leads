@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { Telegraf, Input } from "telegraf";
 import clientPromise from "../../../components/lib/mongodb";
-import { getDownloadableFileUrl } from "../../../components/lib/urlParser";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -9,6 +8,17 @@ if (!token) {
 }
 
 const bot = new Telegraf(token || "");
+
+function getCleanDownloadUrl(url: string): string {
+  if (!url) return "";
+  if (url.includes("drive.google.com")) {
+    const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+      return `https://docs.google.com/uc?export=download&id=${match[1]}`;
+    }
+  }
+  return url;
+}
 
 bot.start(async (ctx) => {
   try {
@@ -23,7 +33,7 @@ bot.start(async (ctx) => {
 
     const client = await clientPromise;
     const db = client.db("luxury_leads");
-    const dayData = await db.collection("days").findOne({ day: dayNum });
+    const dayData = await db.collection("days").findOne({ day: Number(dayNum) });
 
     const title = dayData?.title || `Day ${dayNum}`;
     const rawDocumentUrl = dayData?.documentUrl;
@@ -35,10 +45,10 @@ bot.start(async (ctx) => {
 
     if (rawDocumentUrl) {
       try {
-        const fileUrl = getDownloadableFileUrl(rawDocumentUrl);
-        await ctx.telegram.sendDocument(ctx.chat.id, Input.fromURL(fileUrl));
+        const cleanUrl = getCleanDownloadUrl(rawDocumentUrl);
+        await ctx.telegram.sendDocument(ctx.chat.id, Input.fromURL(cleanUrl));
       } catch (sendErr) {
-        console.error(`Failed to send document for day ${dayNum}:`, sendErr);
+        console.error(`Failed to send document file for day ${dayNum}:`, sendErr);
         await ctx.reply(`📄 *Download Document Link:* ${rawDocumentUrl}`, { parse_mode: "Markdown" });
       }
     } else {

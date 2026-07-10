@@ -6,7 +6,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { day, title, description, videoUrl, documentUrl, isLocked } = body;
 
-    if (!day || isNaN(Number(day))) {
+    const dayNumber = Number(day);
+    if (!dayNumber || isNaN(dayNumber)) {
       return NextResponse.json(
         { success: false, error: "Valid day number is required." },
         { status: 400 }
@@ -16,27 +17,31 @@ export async function POST(req: NextRequest) {
     const client = await clientPromise;
     const db = client.db("luxury_leads");
 
-    const updateData = {
-      day: Number(day),
-      ...(title !== undefined && { title }),
-      ...(description !== undefined && { description }),
-      ...(videoUrl !== undefined && { videoUrl }),
-      ...(documentUrl !== undefined && { documentUrl }),
-      ...(isLocked !== undefined && { isLocked: Boolean(isLocked) }),
+    const updateData: Record<string, any> = {
+      day: dayNumber,
       updatedAt: new Date(),
     };
 
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (videoUrl !== undefined) updateData.videoUrl = videoUrl;
+    if (documentUrl !== undefined) updateData.documentUrl = documentUrl;
+    if (isLocked !== undefined) updateData.isLocked = Boolean(isLocked);
+
     await db.collection("days").updateOne(
-      { day: Number(day) },
-      { $set: updateData, $setOnInsert: { createdAt: new Date() } },
+      { day: dayNumber },
+      { 
+        $set: updateData, 
+        $setOnInsert: { createdAt: new Date() } 
+      },
       { upsert: true }
     );
 
-    const updatedDay = await db.collection("days").findOne({ day: Number(day) });
+    const updatedDay = await db.collection("days").findOne({ day: dayNumber });
 
     return NextResponse.json({
       success: true,
-      message: `Day ${day} updated successfully.`,
+      message: `Day ${dayNumber} updated successfully.`,
       day: updatedDay,
     });
   } catch (error) {

@@ -9,7 +9,10 @@ export default function LandingPage() {
   const [selectedDay, setSelectedDay] = useState(1);
   const [unlockedDays, setUnlockedDays] = useState<number[]>([1]);
   const [isLoading, setIsLoading] = useState(true);
-  const [loading, setLoading] = useState(false);
+  
+  // Independent loading states per channel to avoid triggering both simultaneously
+  const [loadingWhatsApp, setLoadingWhatsApp] = useState(false);
+  const [loadingTelegram, setLoadingTelegram] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -62,7 +65,9 @@ export default function LandingPage() {
       return;
     }
 
-    setLoading(true);
+    if (channel === "whatsapp") setLoadingWhatsApp(true);
+    if (channel === "telegram") setLoadingTelegram(true);
+
     try {
       const res = await submitLeadAndGetRedirect({
         ...formData,
@@ -74,13 +79,18 @@ export default function LandingPage() {
         if (selectedDay < 7 && !unlockedDays.includes(selectedDay + 1)) {
           setUnlockedDays([...unlockedDays, selectedDay + 1]);
         }
-        window.open(res.redirectUrl, "_blank");
+        if (res.redirectUrl) {
+          window.open(res.redirectUrl, "_blank");
+        }
+      } else {
+        alert("Failed to submit details. Please try again.");
       }
     } catch (err) {
       console.error(err);
       alert("Something went wrong. Please try again.");
     } finally {
-      setLoading(false);
+      setLoadingWhatsApp(false);
+      setLoadingTelegram(false);
     }
   };
 
@@ -115,6 +125,7 @@ export default function LandingPage() {
             return (
               <button
                 key={d.day}
+                type="button"
                 onClick={() => handleDaySelect(d.day, d.isLocked)}
                 disabled={!isUnlocked || d.isLocked}
                 className={`p-3 rounded-xl flex flex-col items-center justify-center border transition-all ${
@@ -225,22 +236,24 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Buttons with distinct handlers */}
           <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <button
+              type="button"
               onClick={() => handleSubmit("whatsapp")}
-              disabled={loading}
+              disabled={loadingWhatsApp || loadingTelegram}
               className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium p-3.5 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+              {loadingWhatsApp ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
               Send Document via WhatsApp
             </button>
             <button
+              type="button"
               onClick={() => handleSubmit("telegram")}
-              disabled={loading}
+              disabled={loadingWhatsApp || loadingTelegram}
               className="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-medium p-3.5 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+              {loadingTelegram ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
               Send Document via Telegram
             </button>
           </div>

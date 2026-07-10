@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Telegraf } from "telegraf";
 import clientPromise from "../../../components/lib/mongodb";
+import { getDownloadableFileUrl } from "../../../components/lib/urlParser";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -8,17 +9,6 @@ if (!token) {
 }
 
 const bot = new Telegraf(token || "");
-
-function getCleanDownloadUrl(url: string): string {
-  if (!url) return "";
-  if (url.includes("drive.google.com")) {
-    const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (match && match[1]) {
-      return `https://docs.google.com/uc?export=download&id=${match[1]}`;
-    }
-  }
-  return url;
-}
 
 bot.start(async (ctx) => {
   try {
@@ -44,28 +34,10 @@ bot.start(async (ctx) => {
     );
 
     if (rawDocumentUrl && rawDocumentUrl.trim() !== "") {
-      try {
-        const cleanUrl = getCleanDownloadUrl(rawDocumentUrl);
-        const response = await fetch(cleanUrl);
-        
-        if (!response.ok) throw new Error("Failed to fetch file from source");
-        
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        
-        // Extract a filename or fallback
-        const filename = `Day_${dayNum}_Document.pdf`;
-
-        await ctx.replyWithDocument({
-          source: buffer,
-          filename: filename,
-        });
-      } catch (sendErr) {
-        console.error(`Failed to download and send buffer for day ${dayNum}:`, sendErr);
-        await ctx.reply(`📄 *Direct Download Link:* [Click here to download your document](${rawDocumentUrl})`, {
-          parse_mode: "Markdown",
-        });
-      }
+      const cleanUrl = getDownloadableFileUrl(rawDocumentUrl);
+      await ctx.reply(`📄 *Download Document:* [Click Here to Access File](${cleanUrl})`, {
+        parse_mode: "Markdown",
+      });
     } else {
       await ctx.reply("The document for this day has not been uploaded by the admin yet.");
     }

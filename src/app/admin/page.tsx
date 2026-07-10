@@ -1,10 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getVideoEmbedInfo, isLikelyLargeDriveFile } from "../../components/lib/urlParser";
+
+interface DayForm {
+  videoUrl: string;
+  documentUrl: string;
+  isLocked: boolean;
+}
 
 export default function AdminDashboard() {
   const [leads, setLeads] = useState<any[]>([]);
   const [days, setDays] = useState<any[]>([]);
+  const [forms, setForms] = useState<Record<number, DayForm>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [savingDay, setSavingDay] = useState<number | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ day: number; text: string; type: "success" | "error" } | null>(null);
@@ -15,11 +23,20 @@ export default function AdminDashboard() {
 
   async function fetchAdminData() {
     try {
-      const res = await fetch("/api/admin/data");
+      const res = await fetch("/api/admin/data", { cache: "no-store" });
       const data = await res.json();
       if (data.success) {
         setLeads(data.leads || []);
         setDays(data.days || []);
+        const initialForms: Record<number, DayForm> = {};
+        (data.days || []).forEach((d: any) => {
+          initialForms[d.day] = {
+            videoUrl: d.videoUrl || "",
+            documentUrl: d.documentUrl || "",
+            isLocked: !!d.isLocked,
+          };
+        });
+        setForms(initialForms);
       }
     } catch (error) {
       console.error("Failed to load admin data:", error);
@@ -28,32 +45,33 @@ export default function AdminDashboard() {
     }
   }
 
-  // Handle saving video URL and document URL cleanly via JSON POST
+  function updateForm(dayNum: number, field: keyof DayForm, value: string | boolean) {
+    setForms((prev) => ({
+      ...prev,
+      [dayNum]: { ...prev[dayNum], [field]: value },
+    }));
+  }
+
   async function handleSave(e: React.FormEvent<HTMLFormElement>, dayNum: number) {
     e.preventDefault();
     setSavingDay(dayNum);
     setStatusMessage(null);
 
-    const formData = new FormData(e.currentTarget);
-    const videoUrl = formData.get("videoUrl") as string;
-    const documentUrl = formData.get("documentUrl") as string;
-    const isLocked = formData.get("isLocked") === "on";
+    const form = forms[dayNum];
 
     try {
       const res = await fetch("/api/admin/update-day", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ day: dayNum, videoUrl, documentUrl, isLocked }),
+        body: JSON.stringify({ day: dayNum, ...form }),
       });
 
       const data = await res.json();
       if (data.success) {
         setStatusMessage({ day: dayNum, text: "Saved successfully!", type: "success" });
-        setDays((prev) =>
-          prev.map((d) => (d.day === dayNum ? { ...d, videoUrl, documentUrl, isLocked } : d))
-        );
+        setDays((prev) => prev.map((d) => (d.day === dayNum ? { ...d, ...form } : d)));
       } else {
-        setStatusMessage({ day: dayNum, text: "Save failed. Try again.", type: "error" });
+        setStatusMessage({ day: dayNum, text: data.error || "Save failed. Try again.", type: "error" });
       }
     } catch (err) {
       setStatusMessage({ day: dayNum, text: "Network error occurred.", type: "error" });
@@ -73,8 +91,7 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-8 space-y-12">
       <div className="max-w-6xl mx-auto space-y-10">
-        
-        {/* SECTION 1: MANAGE DAYS CONFIGURATION */}
+
         <div className="space-y-6">
           <div className="border-b border-slate-800 pb-4">
             <h1 className="text-2xl font-bold text-white">Admin Panel: Manage Day Files & Links</h1>
@@ -82,61 +99,97 @@ export default function AdminDashboard() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {days.map((d) => (
-              <form 
-                key={d.day} 
-                onSubmit={(e) => handleSave(e, d.day)} 
-                className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4 shadow-lg"
-              >
-                <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-white">Day {d.day}: {d.title}</h2>
-                  {statusMessage && statusMessage.day === d.day && (
-                    <span className={`text-xs px-2 py-0.5 rounded ${statusMessage.type === "success" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-rose-500/20 text-rose-400 border border-rose-500/30"}`}>
-                      {statusMessage.text}
-                    </span>
-                  )}
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Video URL (Portal)</label>
-                  <input 
-                    type="text" 
-                    name="videoUrl" 
-                    defaultValue={d.videoUrl || ""} 
-                    placeholder="https://youtube.com/..." 
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
+            {days.map((d) => {
+              const form = forms[d.day] || { videoUrl: "", documentUrl: "", isLocked: false };
+              const videoInfo = getVideoEmbedInfo(form.videoUrl);
+              const largeDriveWarning = isLikelyLargeDriveFile(form.documentUrl);
 
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">PDF Document URL (Bot Delivery)</label>
-                  <input 
-                    type="text" 
-                    name="documentUrl" 
-                    defaultValue={d.documentUrl || ""} 
-                    placeholder="https://yourdomain.com/file.pdf" 
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2 pt-2">
-                  <input type="checkbox" name="isLocked" defaultChecked={d.isLocked} id={`lock_${d.day}`} className="accent-blue-600" />
-                  <label htmlFor={`lock_${d.day}`} className="text-xs font-medium text-slate-300">Lock this day on user portal</label>
-                </div>
-
-                <button 
-                  type="submit" 
-                  disabled={savingDay === d.day} 
-                  className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
+              return (
+                <form
+                  key={d.day}
+                  onSubmit={(e) => handleSave(e, d.day)}
+                  className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4 shadow-lg"
                 >
-                  {savingDay === d.day ? "Saving Changes..." : `Save Day ${d.day} Changes`}
-                </button>
-              </form>
-            ))}
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-lg font-semibold text-white">Day {d.day}: {d.title}</h2>
+                    {statusMessage && statusMessage.day === d.day && (
+                      <span className={`text-xs px-2 py-0.5 rounded ${statusMessage.type === "success" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-rose-500/20 text-rose-400 border border-rose-500/30"}`}>
+                        {statusMessage.text}
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">Video URL (Portal)</label>
+                    <input
+                      type="text"
+                      value={form.videoUrl}
+                      onChange={(e) => updateForm(d.day, "videoUrl", e.target.value)}
+                      placeholder="https://youtube.com/..."
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                    />
+                    {/* Live preview — lets you confirm the link actually embeds
+                        before saving, instead of finding out on the live site. */}
+                    {form.videoUrl && (
+                      <div className="mt-2 aspect-video w-full bg-slate-950 rounded-lg overflow-hidden border border-slate-800 relative">
+                        {videoInfo.type === "iframe" && (
+                          <iframe src={videoInfo.src} className="absolute inset-0 w-full h-full" allowFullScreen />
+                        )}
+                        {videoInfo.type === "direct" && (
+                          <video src={videoInfo.src} controls className="absolute inset-0 w-full h-full" />
+                        )}
+                        {videoInfo.type === "unsupported" && (
+                          <p className="text-[11px] text-amber-400 p-3">
+                            ⚠️ This link doesn't look embeddable. Use a YouTube, Vimeo, Loom, Google Drive, or direct .mp4 link.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">PDF Document URL (Bot Delivery)</label>
+                    <input
+                      type="text"
+                      value={form.documentUrl}
+                      onChange={(e) => updateForm(d.day, "documentUrl", e.target.value)}
+                      placeholder="https://yourdomain.com/file.pdf"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                    />
+                    {largeDriveWarning && (
+                      <p className="text-[11px] text-amber-400 mt-1">
+                        ⚠️ Google Drive links can fail to send correctly for larger files (Telegram
+                        may deliver a "can't scan for viruses" page instead of your PDF). For
+                        reliable delivery, host the file directly (S3, Vercel Blob, Cloudinary) and
+                        paste that link instead.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center space-x-2 pt-2">
+                    <input
+                      type="checkbox"
+                      checked={form.isLocked}
+                      onChange={(e) => updateForm(d.day, "isLocked", e.target.checked)}
+                      id={`lock_${d.day}`}
+                      className="accent-blue-600"
+                    />
+                    <label htmlFor={`lock_${d.day}`} className="text-xs font-medium text-slate-300">Lock this day on user portal</label>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={savingDay === d.day}
+                    className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
+                  >
+                    {savingDay === d.day ? "Saving Changes..." : `Save Day ${d.day} Changes`}
+                  </button>
+                </form>
+              );
+            })}
           </div>
         </div>
 
-        {/* SECTION 2: LEADS TABLE */}
         <div className="space-y-4">
           <div className="flex justify-between items-center border-b border-slate-800 pb-4">
             <h1 className="text-2xl font-bold text-white">Admin Leads Management</h1>

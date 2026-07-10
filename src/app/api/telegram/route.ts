@@ -33,22 +33,13 @@ bot.start(async (ctx) => {
       { parse_mode: "Markdown" }
     );
 
-    if (rawDocumentUrl && !rawDocumentUrl.includes("example.com")) {
+    if (rawDocumentUrl) {
       try {
-        // Input.fromURL is Telegraf's documented way to send a remote file
-        // with a custom display filename.
-        await ctx.telegram.sendDocument(
-          ctx.chat.id,
-          Input.fromURL(getDownloadableFileUrl(rawDocumentUrl))
-        );
+        const fileUrl = getDownloadableFileUrl(rawDocumentUrl);
+        await ctx.telegram.sendDocument(ctx.chat.id, Input.fromURL(fileUrl));
       } catch (sendErr) {
-        // Common cause: the source URL (often a large Google Drive file)
-        // didn't actually return the file. Tell the user something useful
-        // instead of failing silently, and log it so you notice the pattern.
         console.error(`Failed to send document for day ${dayNum}:`, sendErr);
-        await ctx.reply(
-          "Sorry, there was a problem sending your document. Please contact support and mention the day number above."
-        );
+        await ctx.reply(`📄 *Download Document Link:* ${rawDocumentUrl}`, { parse_mode: "Markdown" });
       }
     } else {
       await ctx.reply("The document for this day has not been uploaded by the admin yet.");
@@ -60,9 +51,6 @@ bot.start(async (ctx) => {
 
 export async function POST(req: Request) {
   try {
-    // Verify the request actually came from Telegram, not an arbitrary
-    // caller. Set this same value as the `secret_token` param when you
-    // register the webhook (see README).
     const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
     if (expectedSecret) {
       const receivedSecret = req.headers.get("x-telegram-bot-api-secret-token");
@@ -76,7 +64,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Webhook processing error:", error);
-    // Always return 200 to Telegram, or it will keep retrying the same update.
     return NextResponse.json({ ok: true });
   }
 }

@@ -15,7 +15,6 @@ export async function submitLeadAndGetRedirect(data: {
     const client = await clientPromise;
     const db = client.db("luxury_leads");
 
-    // Save lead submission to MongoDB
     await db.collection("leads").insertOne({
       name: data.name,
       email: data.email,
@@ -27,19 +26,22 @@ export async function submitLeadAndGetRedirect(data: {
       createdAt: new Date(),
     });
 
-    // Fetch the live admin configuration for this specific day from MongoDB
     const dayConfig = await db.collection("days").findOne({ day: data.selectedDay });
     const documentUrl = dayConfig?.documentUrl || "";
+    const videoUrl = dayConfig?.videoUrl || "";
 
-    // Generate destination link using the live document URL from the database
     let redirectUrl = "";
+
     if (data.channel === "whatsapp") {
-      const message = encodeURIComponent(`Hello ${data.name}, here is your requested document for Day ${data.selectedDay}: ${documentUrl}`);
+      const message = encodeURIComponent(`Hello ${data.name}, here is your training document for Day ${data.selectedDay}: ${documentUrl}`);
       const cleanPhone = data.whatsapp ? data.whatsapp.replace(/\D/g, "") : data.phone.replace(/\D/g, "");
       redirectUrl = `https://wa.me/${cleanPhone}?text=${message}`;
     } else {
-      // Telegram fallback or direct link
-      redirectUrl = documentUrl || "https://telegram.org";
+      // Telegram: If you have a bot username set in your env, deep-link it. 
+      // Otherwise fallback to sending via t.me or direct file trigger.
+      const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "YourBotUsername";
+      // This opens the bot with a start payload so your bot backend handles sending the file natively
+      redirectUrl = `https://t.me/${botUsername}?start=day_${data.selectedDay}`;
     }
 
     return { success: true, redirectUrl };

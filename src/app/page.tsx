@@ -94,6 +94,18 @@ export default function LandingPage() {
     }
   };
 
+  // Robust parsing utility for YouTube/Vimeo/Embed links
+  const getEmbedUrl = (url: string) => {
+    if (!url) return "";
+    if (url.includes("watch?v=")) {
+      return url.replace("watch?v=", "embed/");
+    }
+    if (url.includes("youtu.be/")) {
+      return url.replace("youtu.be/", "www.youtube.com/embed/");
+    }
+    return url;
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
@@ -158,7 +170,7 @@ export default function LandingPage() {
           <div className="relative aspect-video w-full bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
             {activeContent.videoUrl ? (
               <iframe
-                src={activeContent.videoUrl.includes("watch?v=") ? activeContent.videoUrl.replace("watch?v=", "embed/") : activeContent.videoUrl}
+                src={getEmbedUrl(activeContent.videoUrl)}
                 title={activeContent.title}
                 className="absolute top-0 left-0 w-full h-full"
                 allowFullScreen

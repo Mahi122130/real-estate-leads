@@ -39,15 +39,13 @@ export async function submitLeadAndGetRedirect(data: SubmitLeadParams) {
     const cleanPhone = data.whatsapp ? data.whatsapp.replace(/\D/g, "") : "";
     redirectUrl = `https://wa.me/${cleanPhone}?text=${message}`;
   } else {
-    // Telegram handling: Clean the username
-    const cleanTelegram = data.telegram ? data.telegram.replace("@", "").trim() : "";
+    // Telegram handling: Must point to your Bot username from environment variables
+    const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME?.replace("@", "").trim();
     
-    if (cleanTelegram) {
-      // If it's a standard user handle, just open their chat profile or pass to a bot format if using a bot
-      redirectUrl = `https://t.me/${cleanTelegram}`;
+    if (botUsername) {
+      redirectUrl = `https://t.me/${botUsername}?start=day_${data.selectedDay}`;
     } else {
-      // Fallback general link or support channel if no username provided
-      redirectUrl = `https://t.me/your_support_username`;
+      throw new Error("NEXT_PUBLIC_TELEGRAM_BOT_USERNAME is missing in environment variables.");
     }
   }
 

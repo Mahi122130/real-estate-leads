@@ -9,38 +9,43 @@ if (!token) {
 
 const bot = new Telegraf(token || "");
 
-// Handle incoming messages / start commands from Telegram
 bot.start(async (ctx) => {
-  const startPayload = ctx.payload; 
-  let dayNum = 1;
-  if (startPayload && startPayload.startsWith("day_")) {
-    const parts = startPayload.split("_");
-    const parsed = parseInt(parts[1], 10);
-    if (!isNaN(parsed)) dayNum = parsed;
-  }
+  try {
+    const startPayload = ctx.payload; // Example: "day_1"
+    let dayNum = 1;
 
-  const content = DAYS_CONFIG.find((d) => d.day === dayNum) || DAYS_CONFIG[0];
+    if (startPayload && startPayload.startsWith("day_")) {
+      const parts = startPayload.split("_");
+      const parsed = parseInt(parts[1], 10);
+      if (!isNaN(parsed)) dayNum = parsed;
+    }
 
-  // Send introductory text message
-  await ctx.reply(
-    `Welcome to the Real Estate Masterclass!\n\nHere is your requested document for *${content.title}*:\n\nEnjoy the training!`,
-    { parse_mode: "Markdown" }
-  );
+    // Pull strictly the single day configuration requested
+    const content = DAYS_CONFIG.find((d) => d.day === dayNum) || DAYS_CONFIG[0];
 
-  // Send the actual PDF document file directly
-  if (content.documentUrl) {
-    await ctx.telegram.sendDocument(ctx.chat.id, content.documentUrl);
+    // Send single message for the specific day
+    await ctx.reply(
+      `Welcome to the Real Estate Masterclass!\n\nHere is your requested content for *${content.title}*:\n\n🎥 *Video Lesson:* ${content.videoUrl || "Available on portal"}\n\nEnjoy the training!`,
+      { parse_mode: "Markdown" }
+    );
+
+    // Send the single PDF file for this day only
+    if (content.documentUrl && !content.documentUrl.includes("example.com")) {
+      await ctx.telegram.sendDocument(ctx.chat.id, { url: content.documentUrl });
+    }
+
+  } catch (err) {
+    console.error("Telegram handler error:", err);
   }
 });
 
-// Next.js POST endpoint that Telegram will ping
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     await bot.handleUpdate(body);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("Telegram webhook error:", error);
-    return NextResponse.json({ ok: false }, { status: 500 });
+    console.error("Webhook endpoint error:", error);
+    return NextResponse.json({ ok: true });
   }
 }

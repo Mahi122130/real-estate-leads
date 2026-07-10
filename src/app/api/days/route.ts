@@ -17,12 +17,13 @@ export async function GET() {
 
       return {
         day: defaultDay.day,
-        title: savedDay?.title || defaultDay.title,
-        description: savedDay?.description || defaultDay.description,
-        videoUrl: savedDay?.videoUrl || defaultDay.videoUrl || "",
-        documentUrl: savedDay?.documentUrl || defaultDay.documentUrl || "",
+        title: savedDay?.title ?? defaultDay.title,
+        description: savedDay?.description ?? defaultDay.description,
+        // Prioritize database value explicitly over static config default
+        videoUrl: savedDay?.videoUrl ?? "",
+        documentUrl: savedDay?.documentUrl ?? "",
         isLocked: savedDay?.isLocked !== undefined ? savedDay.isLocked : !defaultDay.isUnlockedDefault,
-        updatedAt: savedDay?.updatedAt || null,
+        updatedAt: savedDay?.updatedAt ?? null,
       };
     });
 

@@ -43,7 +43,7 @@ export default function AdminDashboard() {
     let documentUrl = formData.get("existingDocUrl") as string;
 
     try {
-      // Upload PDF document file if a new one is selected
+      // Upload PDF document file if a new file is chosen
       if (docFile && docFile.size > 0) {
         const dData = new FormData();
         dData.append("file", docFile);
@@ -119,7 +119,7 @@ export default function AdminDashboard() {
                   )}
                 </div>
                 
-                {/* Video URL Input */}
+                {/* Video URL Text Input */}
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">Video URL (YouTube/Vimeo)</label>
                   <input 

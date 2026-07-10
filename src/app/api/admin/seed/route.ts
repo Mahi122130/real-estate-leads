@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import clientPromise from "../../../../components/lib/mongodb";
-import { DAYS_CONFIG } from "../../../../components/data/daysConfig";
+import clientPromise from "@/components/lib/mongodb";
+import { DAYS_CONFIG } from "@/components/data/daysConfig";
+
+export const dynamic = "force-dynamic";
 
 // Visit this route once (while logged into the protected /api/admin/* area)
 // to populate the "days" collection with the default 7-day structure.
